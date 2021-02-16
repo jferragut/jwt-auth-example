@@ -9,7 +9,16 @@ class User(db.Model):
     is_active = db.Column(db.Boolean(), unique=False, nullable=False)
 
     def __repr__(self):
-        return '<User %r>' % self.username
+        return '<User %r>' % self.email
+
+    def validate(self,password):
+        print("validate in progress")
+        print("password doesn't match ",self.password)
+        if(self.password != password):
+            print("password doesn't match ",self.password)
+            return False
+        print("password matches")
+        return True
 
     def serialize(self):
         return {
