@@ -1,5 +1,5 @@
 from flask_sqlalchemy import SQLAlchemy
-
+from werkzeug.security import generate_password_hash, check_password_hash
 db = SQLAlchemy()
 
 class User(db.Model):
@@ -12,12 +12,9 @@ class User(db.Model):
         return '<User %r>' % self.email
 
     def validate(self,password):
-        print("validate in progress")
-        print("password doesn't match ",self.password)
-        if(self.password != password):
-            print("password doesn't match ",self.password)
+        if not check_password_hash(self.password, password):
             return False
-        print("password matches")
+
         return True
 
     def serialize(self):

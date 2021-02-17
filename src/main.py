@@ -14,11 +14,17 @@ from flask_jwt_extended import create_access_token
 from flask_jwt_extended import get_jwt_identity
 from flask_jwt_extended import jwt_required
 from flask_jwt_extended import JWTManager
+import datetime
+
+## Security Suite
+from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-# Setup the Flask-JWT-Simple extension
-app.config['JWT_SECRET_KEY'] = 'lgs%(@j(za@<2&BG|(V{Q}9VY5MIH,{kN26;:Tu;+ps-U9 R46w]6|mh}&[AK_w-'  # Change this!
 app.url_map.strict_slashes = False
+
+# Setup the Flask-JWT-Extended extension
+app.config['JWT_SECRET_KEY'] = os.environ.get('JWT_SECRET')
+
 app.config['SQLALCHEMY_DATABASE_URI'] = os.environ.get('DB_CONNECTION_STRING')
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 MIGRATE = Migrate(app, db)
@@ -36,6 +42,28 @@ def handle_invalid_usage(error):
 @app.route('/')
 def sitemap():
     return generate_sitemap(app)
+
+
+@app.route('/register', methods=['POST'])
+def register():
+    email = request.json.get("email", None)
+    password = request.json.get("password", None)
+
+    if not email:
+        return jsonify({"msg": "Email is required"}), 400
+    if not password:
+        return jsonify({"msg": "Password is required"}), 400
+
+    user = User.query.filter_by(username=username).first()
+    if user:
+        return jsonify({"msg": "Username  already exists"}), 400
+
+    user = User(email=email, password=generate_password_hash(password), is_active=True)
+    db.session.add(user)
+    db.session.commit()
+
+    return jsonify({"msg": "User successfully registered"}),200
+
 
 # Provide a method to create access tokens. The create_jwt()
 # function is used to actually generate the token
@@ -62,7 +90,13 @@ def login():
         # test validate method. 
         if user.validate(password):
             # if user is validated (password is correct), return the token
-            response_msg = {'jwt': create_access_token(identity=email)}
+            expires = datetime.timedelta(days=7)
+            response_msg = {
+                "user": user.serialize(),
+                'token': create_access_token(identity=email,expires_delta=expires),
+                # 'token': create_access_token(identity=email),
+                "expires_at": expires.total_seconds()*1000 
+            }
             status_code = 200
         else:
             # otherwise, raise an exception so that they check their email and password
@@ -86,7 +120,10 @@ def login():
 def protected():
     # Access the identity of the current user with get_jwt_identity
     current_user = get_jwt_identity()
-    return jsonify(logged_in_as=current_user), 200
+    return jsonify({
+        "logged_in_as": current_user,
+        "msg": "Access Granted to Private route"
+    }), 200
 
 # this only runs if `$ python src/main.py` is executed
 if __name__ == '__main__':
